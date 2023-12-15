@@ -16,6 +16,7 @@ class Video:
             self.url = f"https://www.youtube.com/watch?v={self.video_id}"
             self.view_count = video_response['items'][0]['statistics']['viewCount']
             self.like_count = video_response['items'][0]['statistics']['likeCount']
+            self.duration = video_response['items'][0]['contentDetails']['duration']
         except Exception as error:
             self.error = error
             self.video_id = video_id
@@ -23,6 +24,7 @@ class Video:
             self.url = None
             self.view_count = None
             self.like_count = None
+            self.duration = None
 
     def __str__(self):
         return f"{self.title}"
