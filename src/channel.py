@@ -1,83 +1,89 @@
 import json
+
+import dotenv
+from googleapiclient.discovery import build
 import os
 
-from googleapiclient.discovery import build
-from dotenv import load_dotenv
-
-load_dotenv()
+dotenv.load_dotenv()
 
 
 class Channel:
     """Класс для ютуб-канала"""
-    api_key: str = os.getenv('YT_API_KEY')
-    youtube = build('youtube', 'v3', developerKey=api_key)
+    api_key = os.environ.get('YT_API_KEY')
 
     def __init__(self, channel_id: str) -> None:
-        """Экземпляр инициализируется id канала. Дальше все данные будут подтягиваться по API."""
-        self.__channel_id = channel_id
-        self.channel = self.youtube.channels().list(id=self.__channel_id, part='snippet,statistics').execute()
-        self.title = self.channel["items"][0]["snippet"]["title"]
-        self.video_count = self.channel["items"][0]["statistics"]["videoCount"]
-        self.url = f'https://www.youtube.com/channel/{self.__channel_id}'
-        self.id = self.channel["items"][0]["id"]
-        self.description = self.channel["items"][0]["snippet"]["description"]
-        self.subscriberCount = self.channel["items"][0]["statistics"]["subscriberCount"]
-        self.viewCount = self.channel["items"][0]["statistics"]["viewCount"]
+        """Экземпляр инициализируется id канала."""
 
-    def __str__(self) -> str:
-        """ возвращающает название и ссылку на канал по шаблону <название_канала> (<ссылка_на_канал>) """
-        return f"{self.title} ({self.url})"
+        self._channel_id: str = channel_id
+        self.youtube = self.get_service()
+        channel_data = self.get_channel_data()
 
-    def __add__(self, other) -> int:
-        """ возвращающает сумму сложения """
-        return int(self.subscriberCount) + int(other.subscriberCount)
-
-    def __sub__(self, other) -> int:
-        """ возвращающает разность вычитания """
-        return int(self.subscriberCount) - int(other.subscriberCount)
-
-    def __eq__(self, other) -> bool:
-        """ Возвращает True или False по числу подписчиков """
-        return self.subscriberCount == other.subscriberCount
-
-    def __lt__(self, other) -> bool:
-        """ Возвращает True или False, по числу подписчиков """
-        return self.subscriberCount < other.subscriberCount
-
-    def __le__(self, other) -> bool:
-        """ Возвращает True или False, по числу подписчиков """
-        return self.subscriberCount <= other.subscriberCount
-
-    def __gt__(self, other) -> bool:
-        """ Возвращает True или False, по числу подписчиков """
-        return self.subscriberCount > other.subscriberCount
-
-    def __ge__(self, other) -> bool:
-        """ Возвращает True или False, по числу подписчиков """
-        return self.subscriberCount >= other.subscriberCount
+        self.id = channel_data['id']
+        self.title = channel_data['snippet']['title']
+        self.description = channel_data['snippet']['description']
+        self.url = f'https://www.youtube.com/channel/{self.id}'
+        self.subscriber_count = int(channel_data['statistics']
+                                    ['subscriberCount'])
+        self.video_count = int(channel_data['statistics']['videoCount'])
+        self.view_count = int(channel_data['statistics']['viewCount'])
 
     @property
-    def channel_id(self) -> str:
-        """ Возвращаем id канала. """
-        return self.__channel_id
-
-    def print_info(self) -> None:
-        """Выводит в консоль информацию о канале."""
-        print(json.dumps(self.channel))
+    def channel_id(self):
+        """Свойство для получения значения атрибута channel_id."""
+        return self._channel_id
 
     @classmethod
     def get_service(cls):
-        """ Возвращает объект для работы с YouTube API. """
-        return cls.youtube
+        """Возвращает объект для работы с YouTube API."""
+        if not cls.api_key:
+            raise ValueError("API key is missing.")
+        return build("youtube", "v3", developerKey=cls.api_key)
+
+    def get_channel_data(self):
+        """Получает данные о канале с использованием YouTube API."""
+        channel = self.youtube.channels().list(
+            id=self.channel_id, part='snippet,statistics'
+        ).execute()
+        return channel['items'][0]
 
     def to_json(self, filename: str) -> None:
-        """ Запись атрибутов в файл 'moscowpython.json'. """
-        channel_info = {"title": self.title,
-                        "channel_id": self.__channel_id,
-                        "description": self.description,
-                        "url": self.url,
-                        "count_subscriberCount": self.subscriberCount,
-                        "video_count": self.video_count,
-                        "count_views": self.viewCount}
-        with open(filename, 'w', encoding='utf-8') as file:
-            json.dump(channel_info, file, indent=4, ensure_ascii=False)
+        """Сохраняет значения атрибутов в файл в формате JSON."""
+        channel_data = {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'url': self.url,
+            'subscriber_count': self.subscriber_count,
+            'video_count': self.video_count,
+            'view_count': self.view_count
+        }
+
+        with open(filename, 'w', encoding='utf-8') as json_file:
+            json.dump(channel_data, json_file, indent=2, ensure_ascii=False)
+
+    def __str__(self) -> str:
+        """Возвращает строковое представление канала."""
+        return f"{self.title} ({self.url})"
+
+    def __add__(self, other) -> int:
+        """Возвращает сумму подписчиков двух каналов."""
+        return self.subscriber_count + other.subscriber_count
+
+    def __sub__(self, other) -> int:
+        """Возвращает разность подписчиков двух каналов."""
+        return self.subscriber_count - other.subscriber_count
+
+    def __lt__(self, other) -> bool:
+        """Возвращает True, если количество подписчиков
+        текущего канала меньше, чем у другого."""
+        return self.subscriber_count < other.subscriber_count
+
+    def __le__(self, other) -> bool:
+        """Возвращает True, если количество подписчиков
+        текущего канала меньше или равно, чем у другого."""
+        return self.subscriber_count <= other.subscriber_count
+
+    def __eq__(self, other) -> bool:
+        """Возвращает True, если количество подписчиков
+        у двух каналов одинаково."""
+        return self.subscriber_count == other.subscriber_count
